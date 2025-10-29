@@ -1,22 +1,143 @@
-import { Link } from "react-router-dom";
+import { Link, useParams, useNavigate } from "react-router-dom";
 import { Navbar } from "../../Components/Navbar";
+import { useState, useEffect } from "react";
+import { experienceService, bookingService } from "../../api";
+import type { Experience } from "../../api/types";
 
-const dates = [
-  { label: "Oct 22", highlighted: true },
-  { label: "Oct 23" },
-  { label: "Oct 24" },
-  { label: "Oct 25" },
-  { label: "Oct 26" },
-];
-
-const times = [
-  { label: "07:00 am", status: "4 left", color: "text-orange-500" },
-  { label: "9:00 am", status: "2 left", color: "text-red-500" },
-  { label: "11:00 am", status: "5 left", color: "text-orange-500" },
-  { label: "1:00 pm", status: "Sold out", soldOut: true },
-];
+const formatDate = (date: string | Date) => {
+  const dateObj = new Date(date);
+  const options: Intl.DateTimeFormatOptions = {
+    month: "short",
+    day: "numeric",
+  };
+  return dateObj.toLocaleDateString("en-US", options);
+};
 
 export const Details = () => {
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const [experience, setExperience] = useState<Experience | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [quantity, setQuantity] = useState(1);
+  const [selectedDate, setSelectedDate] = useState<string>("");
+  const [selectedTime, setSelectedTime] = useState<string>("");
+  const [slotAvailability, setSlotAvailability] = useState<any>(null);
+
+  useEffect(() => {
+    const fetchExperience = async () => {
+      if (!id) {
+        setError("No experience ID provided");
+        setLoading(false);
+        return;
+      }
+
+      try {
+        setLoading(true);
+        const data = await experienceService.getById(id);
+        setExperience(data);
+        if (data.dates.length > 0) {
+          setSelectedDate(data.dates[0].toString());
+        }
+      } catch (err) {
+        setError("Failed to load experience details");
+        console.error("Error fetching experience:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchExperience();
+  }, [id]);
+
+  useEffect(() => {
+    const fetchAvailability = async () => {
+      if (!id || !selectedDate) return;
+
+      try {
+        const availability = await bookingService.getAvailability(
+          id,
+          selectedDate
+        );
+        setSlotAvailability(availability);
+        setSelectedTime("");
+        setQuantity(1);
+      } catch (err) {
+        console.error("Error fetching availability:", err);
+      }
+    };
+
+    fetchAvailability();
+  }, [id, selectedDate]);
+
+  useEffect(() => {
+    if (selectedTime) {
+      setQuantity(1);
+    }
+  }, [selectedTime]);
+
+  const handleProceedToCheckout = () => {
+    if (!id || !selectedDate || !selectedTime) {
+      alert("Please select date and time");
+      return;
+    }
+
+    const selectedSlot = slotAvailability?.timeSlots?.find(
+      (slot: any) => slot.slot === selectedTime
+    );
+    if (selectedSlot && quantity > selectedSlot.availableSlots) {
+      alert(
+        `Only ${selectedSlot.availableSlots} slots available for this time slot`
+      );
+      return;
+    }
+
+    const subtotal = experience!.price * quantity;
+    const taxes = Math.round(subtotal * 0.059);
+    const total = subtotal + taxes;
+
+    navigate("/checkout", {
+      state: {
+        experienceId: id,
+        experienceTitle: experience!.title,
+        experiencePrice: experience!.price,
+        selectedDate,
+        selectedTime,
+        quantity,
+        subtotal,
+        taxes,
+        total,
+      },
+    });
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#f7f7f7]">
+        <Navbar />
+        <div className="flex items-center justify-center min-h-[50vh]">
+          <div className="text-lg text-gray-600">Loading...</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !experience) {
+    return (
+      <div className="min-h-screen bg-[#f7f7f7]">
+        <Navbar />
+        <div className="flex items-center justify-center min-h-[50vh]">
+          <div className="text-lg text-red-600">
+            {error || "Experience not found"}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const subtotal = experience.price * quantity;
+  const taxes = Math.round(subtotal * 0.059);
+  const total = subtotal + taxes;
   return (
     <div className="min-h-screen bg-[#f7f7f7]">
       <Navbar />
@@ -32,19 +153,19 @@ export const Details = () => {
 
           <div className="overflow-hidden rounded-3xl bg-white shadow">
             <img
-              src="https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=1600&q=80"
-              alt="Kayaking"
+              src={experience.imageUrl}
+              alt={experience.title}
               className="h-80 w-full object-cover"
             />
           </div>
 
           <div className="space-y-6">
             <div className="space-y-2">
-              <h1 className="text-4xl font-semibold text-gray-900">Kayaking</h1>
+              <h1 className="text-4xl font-semibold text-gray-900">
+                {experience.title}
+              </h1>
               <p className="text-lg leading-8 text-gray-700">
-                Curated small-group experience. Certified guide. Safety first
-                with gear included. Helmet and life jackets along with an expert
-                will accompany in kayaking.
+                {experience.description}
               </p>
             </div>
 
@@ -53,18 +174,22 @@ export const Details = () => {
                 Choose date
               </span>
               <div className="flex flex-wrap gap-3">
-                {dates.map((date) => (
-                  <span
-                    key={date.label}
-                    className={`rounded-xl border px-4 py-2 text-sm font-semibold ${
-                      date.highlighted
-                        ? "border-[#FFD643] bg-[#FFD643] text-gray-900"
-                        : "border-gray-200 bg-white text-gray-700"
-                    }`}
-                  >
-                    {date.label}
-                  </span>
-                ))}
+                {experience.dates.map((date) => {
+                  const formattedDate = formatDate(date);
+                  return (
+                    <button
+                      key={date.toString()}
+                      onClick={() => setSelectedDate(date.toString())}
+                      className={`rounded-xl border px-4 py-2 text-sm font-semibold transition-colors ${
+                        selectedDate === date.toString()
+                          ? "border-[#FFD643] bg-[#FFD643] text-gray-900"
+                          : "border-gray-200 bg-white text-gray-700 hover:border-gray-300"
+                      }`}
+                    >
+                      {formattedDate}
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
@@ -73,25 +198,46 @@ export const Details = () => {
                 Choose time
               </span>
               <div className="flex flex-wrap gap-3">
-                {times.map((time) => (
-                  <div
-                    key={time.label}
-                    className={`flex items-center gap-2 rounded-xl border px-4 py-3 text-sm font-semibold ${
-                      time.soldOut
-                        ? "border-gray-200 bg-gray-100 text-gray-400"
-                        : "border-gray-200 bg-white text-gray-800"
-                    }`}
-                  >
-                    <span>{time.label}</span>
-                    <span
-                      className={`text-xs font-medium ${
-                        time.soldOut ? "text-gray-400" : time.color
+                {slotAvailability?.timeSlots?.map((timeSlot: any) => {
+                  const availableSlots = timeSlot.availableSlots;
+                  const soldOut = availableSlots === 0;
+                  const status = soldOut
+                    ? "Sold out"
+                    : availableSlots <= 2
+                    ? `${availableSlots} left`
+                    : `${availableSlots} available`;
+                  const color = soldOut
+                    ? "text-gray-400"
+                    : availableSlots <= 2
+                    ? "text-red-500"
+                    : availableSlots <= 5
+                    ? "text-orange-500"
+                    : "text-green-500";
+
+                  return (
+                    <button
+                      key={timeSlot.slot}
+                      onClick={() => !soldOut && setSelectedTime(timeSlot.slot)}
+                      disabled={soldOut}
+                      className={`flex items-center gap-2 rounded-xl border px-4 py-3 text-sm font-semibold transition-colors ${
+                        soldOut
+                          ? "border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed"
+                          : selectedTime === timeSlot.slot
+                          ? "border-[#FFD643] bg-[#FFD643] text-gray-900"
+                          : "border-gray-200 bg-white text-gray-800 hover:border-gray-300"
                       }`}
                     >
-                      {time.status}
-                    </span>
-                  </div>
-                ))}
+                      <span>{timeSlot.slot}</span>
+                      <span
+                        className={`text-xs font-medium ${
+                          soldOut ? "text-gray-400" : color
+                        }`}
+                      >
+                        {status}
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
               <p className="text-sm text-gray-500">
                 All times are in IST (GMT +5:30)
@@ -115,23 +261,47 @@ export const Details = () => {
             <div className="flex items-center justify-between text-sm text-gray-600">
               <span>Starts at</span>
               <span className="text-base font-semibold text-gray-900">
-                ₹999
+                ₹{experience.price}
               </span>
             </div>
             <div className="flex items-center justify-between text-sm text-gray-600">
-              <span>Quantity</span>
+              <div className="flex flex-col">
+                <span>Quantity</span>
+                {selectedTime && slotAvailability && (
+                  <span className="text-xs text-gray-500">
+                    {(() => {
+                      const selectedSlot = slotAvailability.timeSlots.find(
+                        (slot: any) => slot.slot === selectedTime
+                      );
+                      return selectedSlot
+                        ? `${selectedSlot.availableSlots} available`
+                        : "";
+                    })()}
+                  </span>
+                )}
+              </div>
               <div className="flex items-center rounded-full border border-gray-200">
                 <button
                   type="button"
+                  onClick={() => setQuantity(Math.max(1, quantity - 1))}
                   className="px-3 py-1 text-lg font-semibold text-gray-500 hover:text-gray-900"
                 >
                   -
                 </button>
                 <span className="px-4 text-base font-semibold text-gray-900">
-                  1
+                  {quantity}
                 </span>
                 <button
                   type="button"
+                  onClick={() => {
+                    const selectedSlot = slotAvailability?.timeSlots?.find(
+                      (slot: any) => slot.slot === selectedTime
+                    );
+                    const maxAvailable = selectedSlot
+                      ? selectedSlot.availableSlots
+                      : 999;
+                    setQuantity(Math.min(maxAvailable, quantity + 1));
+                  }}
                   className="px-3 py-1 text-lg font-semibold text-gray-500 hover:text-gray-900"
                 >
                   +
@@ -141,22 +311,30 @@ export const Details = () => {
             <div className="flex items-center justify-between text-sm text-gray-600">
               <span>Subtotal</span>
               <span className="text-base font-semibold text-gray-900">
-                ₹999
+                ₹{subtotal}
               </span>
             </div>
             <div className="flex items-center justify-between text-sm text-gray-600">
               <span>Taxes</span>
-              <span className="text-base font-semibold text-gray-900">₹59</span>
+              <span className="text-base font-semibold text-gray-900">
+                ₹{taxes}
+              </span>
             </div>
           </div>
           <div className="flex items-center justify-between py-4 text-lg font-semibold text-gray-900">
             <span>Total</span>
-            <span>₹958</span>
+            <span>₹{total}</span>
           </div>
+
           <button
             type="button"
-            className="mt-2 w-full rounded-xl bg-gray-200 py-3 text-base font-semibold text-gray-500"
-            disabled
+            onClick={handleProceedToCheckout}
+            className={`mt-2 w-full rounded-xl py-3 text-base font-semibold transition-colors ${
+              selectedDate && selectedTime
+                ? "bg-[#FFD643] text-gray-900 hover:bg-[#f5b400]"
+                : "bg-gray-200 text-gray-500 cursor-not-allowed"
+            }`}
+            disabled={!selectedDate || !selectedTime}
           >
             Confirm
           </button>

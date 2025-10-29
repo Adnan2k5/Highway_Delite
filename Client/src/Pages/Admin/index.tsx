@@ -1,33 +1,38 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useForm, useFieldArray } from "react-hook-form";
-
-interface Experience {
-  _id?: string;
-  title: string;
-  location: string;
-  description: string;
-  dates: string[];
-  slots: string[];
-  price: number;
-  imageUrl: string;
-}
+import {
+  experienceService,
+  bookingService,
+  type Experience,
+  type Booking,
+} from "../../api";
 
 interface ExperienceFormData {
   title: string;
   location: string;
   description: string;
   dates: { value: string }[];
-  slots: { value: string }[];
+  slots: { startTime: string; endTime: string }[];
+  slotsPerTimeSlot: number;
   price: number;
   imageUrl: string;
 }
 
-const API_BASE_URL = "http://localhost:5000/api"; // Adjust this to your backend URL
+const formatTime = (time: string): string => {
+  const [hours, minutes] = time.split(":");
+  const hour = parseInt(hours, 10);
+  const ampm = hour >= 12 ? "PM" : "AM";
+  const displayHour = hour % 12 || 12;
+  return `${displayHour}:${minutes} ${ampm}`;
+};
 
 export const Admin = () => {
   const [experiences, setExperiences] = useState<Experience[]>([]);
   const [loading, setLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<"create" | "list">("create");
+  const [activeTab, setActiveTab] = useState<"create" | "list" | "bookings">(
+    "create"
+  );
+  const [bookings, setBookings] = useState<Booking[]>([]);
   const [notification, setNotification] = useState<{
     message: string;
     type: "success" | "error";
@@ -45,7 +50,8 @@ export const Admin = () => {
       location: "",
       description: "",
       dates: [{ value: "" }],
-      slots: [{ value: "" }],
+      slots: [{ startTime: "", endTime: "" }],
+      slotsPerTimeSlot: 10,
       price: 0,
       imageUrl: "",
     },
@@ -69,42 +75,53 @@ export const Admin = () => {
     name: "slots",
   });
 
-  // Fetch all experiences
-  const fetchExperiences = async () => {
+  const showNotification = useCallback(
+    (message: string, type: "success" | "error") => {
+      setNotification({ message, type });
+      setTimeout(() => setNotification(null), 5000);
+    },
+    []
+  );
+
+  const fetchExperiences = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await fetch(`${API_BASE_URL}/experiences`);
-      if (!response.ok) throw new Error("Failed to fetch experiences");
-      const data = await response.json();
+      const data = await experienceService.getAll();
       setExperiences(data);
     } catch (error) {
-      console.error("Error fetching experiences:", error);
       showNotification("Failed to fetch experiences", "error");
     } finally {
       setLoading(false);
     }
-  };
+  }, [showNotification]);
 
-  // Create new experience
+  const fetchBookings = useCallback(async () => {
+    try {
+      setLoading(true);
+      const data = await bookingService.getAll();
+      setBookings(data);
+    } catch (error) {
+      showNotification("Failed to fetch bookings", "error");
+    } finally {
+      setLoading(false);
+    }
+  }, [showNotification]);
+
   const onSubmit = async (data: ExperienceFormData) => {
     try {
       setLoading(true);
 
       const experienceData = {
         ...data,
-        dates: data.dates.map((d) => d.value).filter(Boolean),
-        slots: data.slots.map((s) => s.value).filter(Boolean),
+        dates: data.dates
+          .map((d) => new Date(d.value))
+          .filter((date) => !isNaN(date.getTime())),
+        slots: data.slots
+          .filter((s) => s.startTime && s.endTime)
+          .map((s) => `${formatTime(s.startTime)} - ${formatTime(s.endTime)}`),
       };
 
-      const response = await fetch(`${API_BASE_URL}/experiences`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(experienceData),
-      });
-
-      if (!response.ok) throw new Error("Failed to create experience");
+      await experienceService.create(experienceData);
 
       showNotification("Experience created successfully!", "success");
       reset();
@@ -112,49 +129,47 @@ export const Admin = () => {
         fetchExperiences();
       }
     } catch (error) {
-      console.error("Error creating experience:", error);
       showNotification("Failed to create experience", "error");
     } finally {
       setLoading(false);
     }
   };
 
-  // Delete experience
   const deleteExperience = async (id: string) => {
     if (!confirm("Are you sure you want to delete this experience?")) return;
 
     try {
-      const response = await fetch(`${API_BASE_URL}/experiences/${id}`, {
-        method: "DELETE",
-      });
-
-      if (!response.ok) throw new Error("Failed to delete experience");
-
+      await experienceService.delete(id);
       showNotification("Experience deleted successfully!", "success");
       fetchExperiences();
     } catch (error) {
-      console.error("Error deleting experience:", error);
       showNotification("Failed to delete experience", "error");
     }
   };
 
-  // Show notification
-  const showNotification = (message: string, type: "success" | "error") => {
-    setNotification({ message, type });
-    setTimeout(() => setNotification(null), 5000);
-  };
-
-  // Load experiences when switching to list tab
   useEffect(() => {
     if (activeTab === "list") {
       fetchExperiences();
+    } else if (activeTab === "bookings") {
+      fetchBookings();
     }
-  }, [activeTab]);
+  }, [activeTab, fetchExperiences, fetchBookings]);
+
+  useEffect(() => {
+    const loadInitialData = async () => {
+      try {
+        await Promise.all([fetchExperiences(), fetchBookings()]);
+      } catch (error) {
+        console.error("Failed to load initial data:", error);
+      }
+    };
+
+    loadInitialData();
+  }, [fetchExperiences, fetchBookings]);
 
   return (
     <main className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-7xl mx-auto">
-        {/* Header */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">
             Experience Management Dashboard
@@ -162,7 +177,6 @@ export const Admin = () => {
           <p className="text-gray-600">Create and manage your experiences</p>
         </div>
 
-        {/* Notification */}
         {notification && (
           <div
             className={`mb-6 p-4 rounded-lg ${
@@ -175,7 +189,6 @@ export const Admin = () => {
           </div>
         )}
 
-        {/* Tabs */}
         <div className="mb-6">
           <nav className="flex space-x-8" aria-label="Tabs">
             <button
@@ -198,10 +211,19 @@ export const Admin = () => {
             >
               All Experiences ({experiences.length})
             </button>
+            <button
+              onClick={() => setActiveTab("bookings")}
+              className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                activeTab === "bookings"
+                  ? "border-blue-500 text-blue-600"
+                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+              }`}
+            >
+              Bookings ({bookings.length})
+            </button>
           </nav>
         </div>
 
-        {/* Create Experience Tab */}
         {activeTab === "create" && (
           <div className="bg-white rounded-lg shadow-md p-6">
             <h2 className="text-xl font-semibold text-gray-900 mb-6">
@@ -210,7 +232,6 @@ export const Admin = () => {
 
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Title */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Title *
@@ -228,7 +249,6 @@ export const Admin = () => {
                   )}
                 </div>
 
-                {/* Location */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Location *
@@ -249,7 +269,6 @@ export const Admin = () => {
                 </div>
               </div>
 
-              {/* Description */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Description *
@@ -269,8 +288,7 @@ export const Admin = () => {
                 )}
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Price */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Price ($) *
@@ -293,7 +311,27 @@ export const Admin = () => {
                   )}
                 </div>
 
-                {/* Image URL */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Slots Per Time Slot *
+                  </label>
+                  <input
+                    {...register("slotsPerTimeSlot", {
+                      required: "Number of slots is required",
+                      valueAsNumber: true,
+                      min: { value: 1, message: "Must have at least 1 slot" },
+                    })}
+                    type="number"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="10"
+                  />
+                  {errors.slotsPerTimeSlot && (
+                    <p className="mt-1 text-sm text-red-600">
+                      {errors.slotsPerTimeSlot.message}
+                    </p>
+                  )}
+                </div>
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Image URL *
@@ -314,7 +352,6 @@ export const Admin = () => {
                 </div>
               </div>
 
-              {/* Dates */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Available Dates *
@@ -342,27 +379,44 @@ export const Admin = () => {
                 <button
                   type="button"
                   onClick={() => appendDate({ value: "" })}
-                  className="mt-2 px-4 py-2 text-sm font-medium text-blue-600 bg-blue-50 border border-blue-200 rounded-md hover:bg-blue-100"
+                  className="mt-2 px-4 py-2 text-sm font-medium text-black bg-blue-50 border border-blue-200 rounded-md hover:bg-blue-100"
                 >
                   Add Another Date
                 </button>
               </div>
 
-              {/* Time Slots */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Time Slots *
                 </label>
                 {slotFields.map((field, index) => (
                   <div key={field.id} className="flex items-center gap-2 mb-2">
-                    <input
-                      {...register(`slots.${index}.value`, {
-                        required: "Time slot is required",
-                      })}
-                      type="text"
-                      className="flex-1 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                      placeholder="e.g., 9:00 AM - 11:00 AM"
-                    />
+                    <div className="flex-1 grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="block text-xs text-gray-500 mb-1">
+                          Start Time
+                        </label>
+                        <input
+                          {...register(`slots.${index}.startTime`, {
+                            required: "Start time is required",
+                          })}
+                          type="time"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-gray-500 mb-1">
+                          End Time
+                        </label>
+                        <input
+                          {...register(`slots.${index}.endTime`, {
+                            required: "End time is required",
+                          })}
+                          type="time"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                        />
+                      </div>
+                    </div>
                     {slotFields.length > 1 && (
                       <button
                         type="button"
@@ -376,19 +430,18 @@ export const Admin = () => {
                 ))}
                 <button
                   type="button"
-                  onClick={() => appendSlot({ value: "" })}
+                  onClick={() => appendSlot({ startTime: "", endTime: "" })}
                   className="mt-2 px-4 py-2 text-sm font-medium text-blue-600 bg-blue-50 border border-blue-200 rounded-md hover:bg-blue-100"
                 >
                   Add Another Time Slot
                 </button>
               </div>
 
-              {/* Submit Button */}
               <div className="flex justify-end">
                 <button
                   type="submit"
                   disabled={loading}
-                  className="px-6 py-3 bg-blue-600 text-white font-medium rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-6 py-3 bg-[#FFD643] text-black font-medium rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {loading ? "Creating..." : "Create Experience"}
                 </button>
@@ -396,8 +449,6 @@ export const Admin = () => {
             </form>
           </div>
         )}
-
-        {/* List Experiences Tab */}
         {activeTab === "list" && (
           <div className="bg-white rounded-lg shadow-md p-6">
             <div className="flex justify-between items-center mb-6">
@@ -406,7 +457,7 @@ export const Admin = () => {
               </h2>
               <button
                 onClick={fetchExperiences}
-                className="px-4 py-2 bg-blue-600 text-white font-medium rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                className="px-4 py-2 bg-[#FFD643] text-black font-medium rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
               >
                 Refresh
               </button>
@@ -439,7 +490,7 @@ export const Admin = () => {
                         {experience.title}
                       </h3>
                       <p className="text-gray-600 text-sm mb-2">
-                        📍 {experience.location}
+                        {experience.location}
                       </p>
                       <p className="text-gray-700 text-sm mb-3 line-clamp-2">
                         {experience.description}
@@ -488,6 +539,142 @@ export const Admin = () => {
                     </div>
                   </div>
                 ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {activeTab === "bookings" && (
+          <div className="bg-white rounded-lg shadow-md p-6">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-xl font-semibold text-gray-900">
+                All Bookings ({bookings.length})
+              </h2>
+            </div>
+
+            {loading ? (
+              <div className="flex items-center justify-center py-12">
+                <div className="text-lg text-gray-600">Loading bookings...</div>
+              </div>
+            ) : bookings.length === 0 ? (
+              <div className="text-center py-12">
+                <div className="text-gray-500 text-lg mb-2">
+                  No bookings found
+                </div>
+                <p className="text-gray-400">
+                  Bookings will appear here once customers start booking
+                  experiences.
+                </p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Customer
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Experience
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Date & Time
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        People
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Total Price
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Status
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Actions
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {bookings.map((booking) => (
+                      <tr key={booking._id}>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm font-medium text-gray-900">
+                            {booking.customerName}
+                          </div>
+                          <div className="text-sm text-gray-500">
+                            {booking.customerEmail}
+                          </div>
+                          <div className="text-sm text-gray-500">
+                            {booking.customerPhone}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-900">
+                            {(booking as any).experienceId?.title ||
+                              "Experience"}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-900">
+                            {new Date(booking.bookingDate).toLocaleDateString()}
+                          </div>
+                          <div className="text-sm text-gray-500">
+                            {booking.timeSlot}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {booking.numberOfPeople}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          ₹{booking.totalPrice}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span
+                            className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                              booking.status === "confirmed"
+                                ? "bg-green-100 text-green-800"
+                                : booking.status === "cancelled"
+                                ? "bg-red-100 text-red-800"
+                                : "bg-yellow-100 text-yellow-800"
+                            }`}
+                          >
+                            {booking.status}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                          {booking.status === "confirmed" && (
+                            <button
+                              onClick={async () => {
+                                if (
+                                  confirm(
+                                    "Are you sure you want to cancel this booking?"
+                                  )
+                                ) {
+                                  try {
+                                    await bookingService.cancel(booking._id!);
+                                    showNotification(
+                                      "Booking cancelled successfully",
+                                      "success"
+                                    );
+                                    fetchBookings();
+                                  } catch (error) {
+                                    showNotification(
+                                      "Failed to cancel booking",
+                                      "error"
+                                    );
+                                  }
+                                }
+                              }}
+                              className="text-red-600 hover:text-red-900"
+                            >
+                              Cancel
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             )}
           </div>
