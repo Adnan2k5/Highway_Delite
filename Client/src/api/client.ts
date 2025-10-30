@@ -1,6 +1,6 @@
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL ||
-  "https://highway-delite-1hnq.vercel.app/api";
+  "https://highway-delite-3569.onrender.com/api";
 
 export const apiClient = {
   get: async (endpoint: string) => {
