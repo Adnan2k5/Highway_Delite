@@ -1,5 +1,5 @@
 import { useLocation, useNavigate, Link } from "react-router-dom";
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { Navbar } from "../../Components/Navbar";
 import {
   bookingService,
@@ -38,6 +38,8 @@ export const Checkout = () => {
     useState<PromoValidationResponse | null>(null);
   const [promoLoading, setPromoLoading] = useState(false);
   const [promoError, setPromoError] = useState<string | null>(null);
+
+  const handleSearch = useCallback(() => {}, []);
   const validateBookingData = (data: CheckoutState | null): boolean => {
     if (!data) return false;
 
@@ -64,7 +66,7 @@ export const Checkout = () => {
   if (!bookingData || !validateBookingData(bookingData)) {
     return (
       <div className="min-h-screen bg-[#f7f7f7]">
-        <Navbar />
+        <Navbar onSearch={handleSearch} />
         <div className="flex items-center justify-center min-h-[50vh]">
           <div className="text-center">
             <h2 className="text-xl font-semibold text-gray-900 mb-2">
@@ -243,7 +245,7 @@ export const Checkout = () => {
 
   return (
     <div className="min-h-screen bg-[#f7f7f7]">
-      <Navbar />
+      <Navbar onSearch={handleSearch} />
       <main className="mx-auto flex max-w-6xl flex-col gap-8 px-6 py-10 lg:flex-row">
         <section className="flex-1">
           <Link

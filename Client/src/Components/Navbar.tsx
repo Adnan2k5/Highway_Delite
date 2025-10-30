@@ -1,7 +1,38 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
-export const Navbar = () => {
+interface NavbarProps {
+  onSearch: (query: string) => void;
+  onClearSearch?: () => void;
+}
+
+export const Navbar = ({ onSearch, onClearSearch }: NavbarProps) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [searchInput, setSearchInput] = useState("");
+
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      onSearch(searchInput);
+    }, 300);
+
+    return () => clearTimeout(timeoutId);
+  }, [searchInput]);
+
+  const handleSearch = () => {
+    onSearch(searchInput);
+  };
+
+  const handleClearSearch = () => {
+    setSearchInput("");
+    if (onClearSearch) {
+      onClearSearch();
+    }
+  };
+
+  const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      handleSearch();
+    }
+  };
 
   return (
     <nav className="w-full bg-white shadow-sm border-b border-gray-200">
@@ -13,12 +44,29 @@ export const Navbar = () => {
         </div>
 
         <div className="hidden md:flex search items-center justify-end gap-4 w-1/2">
-          <input
-            type="text"
-            placeholder="Search experiences"
-            className="bg-[#EDEDED] rounded-md px-3 py-2 w-64 lg:w-80"
-          />
-          <button className="bg-[#FFD643] text-black rounded-md px-4 py-2 hover:bg-[#FFD643]/90 transition-colors">
+          <div className="relative">
+            <input
+              type="text"
+              placeholder="Search experiences"
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              onKeyPress={handleKeyPress}
+              className="bg-[#EDEDED] rounded-md px-3 py-2 w-64 lg:w-80 pr-10"
+            />
+            {searchInput && (
+              <button
+                onClick={handleClearSearch}
+                className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                aria-label="Clear search"
+              >
+                ✕
+              </button>
+            )}
+          </div>
+          <button
+            onClick={handleSearch}
+            className="bg-[#FFD643] text-black rounded-md px-4 py-2 hover:bg-[#FFD643]/90 transition-colors"
+          >
             Search
           </button>
         </div>
@@ -59,12 +107,29 @@ export const Navbar = () => {
       {isMobileMenuOpen && (
         <div className="md:hidden px-4 pb-4 border-t border-gray-200">
           <div className="flex flex-col gap-3 pt-4">
-            <input
-              type="text"
-              placeholder="Search experiences"
-              className="bg-[#EDEDED] rounded-md px-3 py-2 w-full"
-            />
-            <button className="bg-[#FFD643] text-black rounded-md px-4 py-2 w-full hover:bg-[#FFD643]/90 transition-colors">
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="Search experiences"
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+                onKeyPress={handleKeyPress}
+                className="bg-[#EDEDED] rounded-md px-3 py-2 w-full pr-10"
+              />
+              {searchInput && (
+                <button
+                  onClick={handleClearSearch}
+                  className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                  aria-label="Clear search"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+            <button
+              onClick={handleSearch}
+              className="bg-[#FFD643] text-black rounded-md px-4 py-2 w-full hover:bg-[#FFD643]/90 transition-colors"
+            >
               Search
             </button>
           </div>

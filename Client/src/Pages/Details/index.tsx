@@ -1,6 +1,6 @@
 import { Link, useParams, useNavigate } from "react-router-dom";
 import { Navbar } from "../../Components/Navbar";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { experienceService, bookingService } from "../../api";
 import type { Experience } from "../../api/types";
 
@@ -23,6 +23,9 @@ export const Details = () => {
   const [selectedDate, setSelectedDate] = useState<string>("");
   const [selectedTime, setSelectedTime] = useState<string>("");
   const [slotAvailability, setSlotAvailability] = useState<any>(null);
+
+  // Memoized empty search function to prevent unnecessary re-renders
+  const handleSearch = useCallback(() => {}, []);
 
   useEffect(() => {
     const fetchExperience = async () => {
@@ -114,7 +117,7 @@ export const Details = () => {
   if (loading) {
     return (
       <div className="min-h-screen bg-[#f7f7f7]">
-        <Navbar />
+        <Navbar onSearch={handleSearch} />
         <div className="flex items-center justify-center min-h-[50vh]">
           <div className="text-lg text-gray-600">Loading...</div>
         </div>
@@ -125,7 +128,7 @@ export const Details = () => {
   if (error || !experience) {
     return (
       <div className="min-h-screen bg-[#f7f7f7]">
-        <Navbar />
+        <Navbar onSearch={handleSearch} />
         <div className="flex items-center justify-center min-h-[50vh]">
           <div className="text-lg text-red-600">
             {error || "Experience not found"}
@@ -140,7 +143,7 @@ export const Details = () => {
   const total = subtotal + taxes;
   return (
     <div className="min-h-screen bg-[#f7f7f7]">
-      <Navbar />
+      <Navbar onSearch={handleSearch} />
       <main className="mx-auto flex max-w-6xl flex-col gap-8 px-6 py-10 lg:flex-row">
         <section className="flex-1 space-y-8">
           <Link

@@ -4,7 +4,20 @@ const routes = Router();
 
 routes.get("/experiences", async (req, res) => {
   try {
-    const experiences = await Experience.find().sort({ createdAt: -1 });
+    const { search } = req.query;
+    let query = {};
+
+    if (search) {
+      query = {
+        $or: [
+          { title: { $regex: search, $options: "i" } },
+          { location: { $regex: search, $options: "i" } },
+          { description: { $regex: search, $options: "i" } },
+        ],
+      };
+    }
+
+    const experiences = await Experience.find(query).sort({ createdAt: -1 });
     return res.json(experiences);
   } catch (error) {
     return res.status(500).json({ error: "Failed to fetch experiences" });
