@@ -42,13 +42,15 @@ const Card: FC<CardProps> = ({
         <p className="text-[12px] font-normal  text-gray-700">{description}</p>
 
         <footer className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-2">
-          <div className="text-sm text-gray-600 flex items-center gap-1.5">
-            <span className="block text-xs uppercase tracking-wide text-gray-500">
-              From
-            </span>
-            <span className="text-[20px] font-medium text-gray-900">
-              {priceLabel}
-            </span>
+          <div className="w-full text-sm text-gray-600 flex flex-col md:flex-row md:items-center md:justify-between gap-1.5">
+            <div className="price">
+              <span className="block text-xs uppercase tracking-wide text-gray-500">
+                From
+              </span>
+              <span className="text-[20px] font-medium text-gray-900">
+                {priceLabel}
+              </span>
+            </div>
             <button
               onClick={() => navigate(`/experience/${id}`)}
               type="button"
