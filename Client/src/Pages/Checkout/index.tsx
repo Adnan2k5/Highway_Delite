@@ -32,21 +32,47 @@ export const Checkout = () => {
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [agreeToTerms, setAgreeToTerms] = useState(false);
   const [promoValidation, setPromoValidation] =
     useState<PromoValidationResponse | null>(null);
   const [promoLoading, setPromoLoading] = useState(false);
   const [promoError, setPromoError] = useState<string | null>(null);
+  const validateBookingData = (data: CheckoutState | null): boolean => {
+    if (!data) return false;
 
-  if (!bookingData) {
+    const requiredFields = [
+      "experienceId",
+      "experienceTitle",
+      "experiencePrice",
+      "selectedDate",
+      "selectedTime",
+      "quantity",
+      "subtotal",
+      "taxes",
+      "total",
+    ];
+
+    return requiredFields.every(
+      (field) =>
+        data[field as keyof CheckoutState] !== undefined &&
+        data[field as keyof CheckoutState] !== null &&
+        data[field as keyof CheckoutState] !== ""
+    );
+  };
+
+  if (!bookingData || !validateBookingData(bookingData)) {
     return (
       <div className="min-h-screen bg-[#f7f7f7]">
         <Navbar />
         <div className="flex items-center justify-center min-h-[50vh]">
           <div className="text-center">
             <h2 className="text-xl font-semibold text-gray-900 mb-2">
-              No booking data found
+              Invalid or missing booking data
             </h2>
+            <p className="text-gray-600 mb-4">
+              Please start your booking process from the beginning.
+            </p>
             <Link
               to="/"
               className="text-blue-600 hover:text-blue-800 underline"
@@ -58,6 +84,65 @@ export const Checkout = () => {
       </div>
     );
   }
+  const validateEmail = (email: string): string | null => {
+    if (!email) return "Email is required";
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) return "Please enter a valid email address";
+    return null;
+  };
+
+  const validatePhone = (phone: string): string | null => {
+    if (!phone) return "Phone number is required";
+    const phoneRegex = /^[\+]?[1-9]?[\d\s\-\(\)]{8,15}$/;
+    if (!phoneRegex.test(phone.replace(/\s/g, "")))
+      return "Please enter a valid phone number";
+    return null;
+  };
+
+  const validateName = (name: string): string | null => {
+    if (!name) return "Name is required";
+    if (name.trim().length < 2)
+      return "Name must be at least 2 characters long";
+    if (!/^[a-zA-Z\s]+$/.test(name))
+      return "Name should only contain letters and spaces";
+    return null;
+  };
+
+  const validateForm = (): boolean => {
+    const errors: Record<string, string> = {};
+
+    const nameError = validateName(formData.customerName);
+    if (nameError) errors.customerName = nameError;
+
+    const emailError = validateEmail(formData.customerEmail);
+    if (emailError) errors.customerEmail = emailError;
+
+    const phoneError = validatePhone(formData.customerPhone);
+    if (phoneError) errors.customerPhone = phoneError;
+    const bookingDate = new Date(bookingData.selectedDate);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    if (bookingDate < today) {
+      setError(
+        "The selected booking date has already passed. Please choose a future date."
+      );
+      return false;
+    }
+    if (bookingData.quantity <= 0) {
+      setError(
+        "Invalid quantity. Please ensure you have selected at least 1 person."
+      );
+      return false;
+    }
+    if (bookingData.total <= 0) {
+      setError("Invalid booking amount. Please recalculate your booking.");
+      return false;
+    }
+
+    setFieldErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
 
   const handlePromoValidation = async () => {
     if (!formData.promoCode.trim()) {
@@ -95,19 +180,24 @@ export const Checkout = () => {
     setFormData({ ...formData, promoCode: "" });
   };
 
+  const handleInputChange = (field: string, value: string) => {
+    setFormData({ ...formData, [field]: value });
+    if (fieldErrors[field]) {
+      setFieldErrors({ ...fieldErrors, [field]: "" });
+    }
+  };
+
   const getFinalTotal = () => {
     return promoValidation?.finalAmount ?? bookingData.total;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError(null);
+    setFieldErrors({});
 
-    if (
-      !formData.customerName ||
-      !formData.customerEmail ||
-      !formData.customerPhone
-    ) {
-      setError("Please fill in all required fields");
+    if (!validateForm()) {
+      setError("Please correct the errors below");
       return;
     }
 
@@ -186,11 +276,20 @@ export const Checkout = () => {
                     required
                     value={formData.customerName}
                     onChange={(e) =>
-                      setFormData({ ...formData, customerName: e.target.value })
+                      handleInputChange("customerName", e.target.value)
                     }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 ${
+                      fieldErrors.customerName
+                        ? "border-red-300 bg-red-50"
+                        : "border-gray-300"
+                    }`}
                     placeholder="Your name"
                   />
+                  {fieldErrors.customerName && (
+                    <p className="mt-1 text-sm text-red-600">
+                      {fieldErrors.customerName}
+                    </p>
+                  )}
                 </div>
 
                 <div>
@@ -202,14 +301,20 @@ export const Checkout = () => {
                     required
                     value={formData.customerEmail}
                     onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        customerEmail: e.target.value,
-                      })
+                      handleInputChange("customerEmail", e.target.value)
                     }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 ${
+                      fieldErrors.customerEmail
+                        ? "border-red-300 bg-red-50"
+                        : "border-gray-300"
+                    }`}
                     placeholder="Your email"
                   />
+                  {fieldErrors.customerEmail && (
+                    <p className="mt-1 text-sm text-red-600">
+                      {fieldErrors.customerEmail}
+                    </p>
+                  )}
                 </div>
               </div>
 
@@ -222,11 +327,20 @@ export const Checkout = () => {
                   required
                   value={formData.customerPhone}
                   onChange={(e) =>
-                    setFormData({ ...formData, customerPhone: e.target.value })
+                    handleInputChange("customerPhone", e.target.value)
                   }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 ${
+                    fieldErrors.customerPhone
+                      ? "border-red-300 bg-red-50"
+                      : "border-gray-300"
+                  }`}
                   placeholder="Your phone number"
                 />
+                {fieldErrors.customerPhone && (
+                  <p className="mt-1 text-sm text-red-600">
+                    {fieldErrors.customerPhone}
+                  </p>
+                )}
               </div>
 
               <div className="space-y-3">
