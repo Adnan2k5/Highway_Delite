@@ -4,7 +4,7 @@
 
 A comprehensive fullstack web application built with Node.js/Express backend and React/TypeScript/Vite frontend for managing adventure experiences and bookings with slot-based availability system and promotional code features.
 
-## 🏗️ High-Level Architecture
+##  High-Level Architecture
 
 ### System Overview
 
@@ -23,7 +23,7 @@ A comprehensive fullstack web application built with Node.js/Express backend and
 └─────────────────┘    └─────────────────┘    └─────────────────┘
 ```
 
-## 🚀 Core Features
+##  Core Features
 
 ### 1. Experience Management System
 
@@ -104,7 +104,7 @@ A comprehensive fullstack web application built with Node.js/Express backend and
 - Reference relationships between collections
 ```
 
-## 🗄️ Database Schema
+##  Database Schema
 
 ### Experience Collection
 
@@ -153,7 +153,7 @@ A comprehensive fullstack web application built with Node.js/Express backend and
 Index: { experienceId: 1, bookingDate: 1, timeSlot: 1 }
 ```
 
-## 📱 API Structure
+## API Structure
 
 ### Experience Endpoints
 
@@ -181,7 +181,7 @@ POST / api / promo / validate; // Validate promo code
 GET / api / promo / list; // Get available promo codes
 ```
 
-## 🔄 Booking Flow
+##  Booking Flow
 
 ### Booking Process
 
@@ -196,14 +196,14 @@ GET / api / promo / list; // Get available promo codes
          │              │ Check Slot      │              │
          │              │ Availability    │              │
          │              └─────────────────┘              │
-         │                                                ▼
+         │                                               ▼
          │              ┌─────────────────┐    ┌─────────────────┐
          └─────────────►│   Booking       │◄───│   Apply Promo   │
                         │   Confirmed     │    │   Code          │
                         └─────────────────┘    └─────────────────┘
 ```
 
-## 🚀 Getting Started
+##  Getting Started
 
 ### Prerequisites
 
@@ -248,58 +248,9 @@ npm run dev
 
 The application automatically connects to MongoDB on startup. Ensure MongoDB is running and accessible via the MONGO_URI.
 
-## 📁 Project Structure
 
-```
-HighwayDelight/
-├── README.md
-├── Backend/
-│   ├── package.json
-│   ├── server.js                 # Main server file
-│   ├── config/
-│   │   └── connectDB.js         # Database connection
-│   ├── models/
-│   │   ├── booking.model.js     # Booking schema
-│   │   └── experience.model.js  # Experience schema
-│   └── routes/
-│       ├── bookings.routes.js   # Booking API routes
-│       ├── exprecience.routes.js# Experience API routes
-│       └── promo.routes.js      # Promotional code routes
-└── Client/
-    ├── package.json
-    ├── index.html
-    ├── vite.config.ts
-    ├── tsconfig.json
-    ├── tailwind.config.js
-    └── src/
-        ├── App.tsx              # Main App component
-        ├── main.tsx             # Entry point
-        ├── App.css
-        ├── index.css
-        ├── api/                 # API service layer
-        │   ├── bookingService.ts
-        │   ├── client.ts        # HTTP client
-        │   ├── experienceService.ts
-        │   ├── index.ts
-        │   ├── promoService.ts
-        │   └── types.ts         # TypeScript interfaces
-        ├── Components/
-        │   ├── Card.tsx         # Experience card component
-        │   └── Navbar.tsx       # Navigation component
-        └── Pages/
-            ├── Admin/
-            │   └── index.tsx    # Admin dashboard
-            ├── BookingConfirmed/
-            │   └── index.tsx    # Booking confirmation
-            ├── Checkout/
-            │   └── index.tsx    # Checkout process
-            ├── Details/
-            │   └── index.tsx    # Experience details
-            └── Home/
-                └── index.tsx    # Home page with experience list
-```
 
-## 🎯 Key Features Breakdown
+##  Key Features Breakdown
 
 ### Experience Management
 
@@ -326,43 +277,4 @@ HighwayDelight/
 
 - Experience creation and management
 - Booking overview and management
-- Basic analytics and reporting
 
-## 🔧 Development
-
-### Adding New Features
-
-1. **Backend**: Add new routes in `routes/` directory
-2. **Models**: Create/modify schemas in `models/` directory
-3. **Frontend**: Add new components in `Components/` or pages in `Pages/`
-4. **API**: Add service functions in `src/api/` directory
-
-### Code Standards
-
-- TypeScript for frontend type safety
-- ESLint for code linting
-- Mongoose for database schema validation
-- Express.js routing patterns
-
-## 🚦 Current Status
-
-The application is a functional booking platform with:
-
-- ✅ Experience browsing and details
-- ✅ Slot-based booking system
-- ✅ Customer information collection
-- ✅ Promotional code system
-- ✅ Admin management panel
-- ✅ Responsive design with TailwindCSS
-
-## 📝 License
-
-This project is licensed under the ISC License.
-
-## 👥 Contributing
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
